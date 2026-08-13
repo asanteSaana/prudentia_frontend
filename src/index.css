@@ -1,0 +1,243 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+/**
+ * Design tokens — navy, teal and gold.
+ *
+ * The token architecture is the frontend template's, unchanged: shadcn/ui's semantic
+ * names declared on `:root` and `.dark`, mapped into Tailwind by `@theme inline`. That is
+ * what lets the template's `sidebar.tsx`, `button.tsx` and the rest drop in and render
+ * correctly rather than being re-themed by hand.
+ *
+ * ── The three brand colours have JOBS, not just presence ────────────────────
+ *
+ *   NAVY   chrome and identity — the sidebar, the brand mark, page-header discs.
+ *          Never a data colour: it is too dark to sit in the categorical lightness
+ *          band, and chrome that shares a hue with a series invites the reader to ask
+ *          whether the sidebar is a category.
+ *   TEAL   action — primary buttons, the active nav row, focus rings, links. One hue
+ *          for "you can press this" and nothing else.
+ *   GOLD   emphasis, used sparingly — the brand mark on navy, the row-ceiling notice.
+ *          It is also the warning status, which is the only place it appears in prose.
+ *
+ * The categorical chart palette is DERIVED from the same three (teal, gold, a mid navy
+ * blue, and a coral for the fourth slot) so the charts read as part of the product rather
+ * than a separate colour system bolted on. It was re-validated after that change, not
+ * assumed — see `lib/chartTheme.ts` for the recorded results. Both modes now pass all
+ * five checks with no warning, which the previous palette did not.
+ */
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+	--radius: 8px;
+
+	/* Brand, referenced by the semantic tokens below rather than used directly. */
+	--navy: #0a2540;
+	--teal: #0d6e7c;
+	--gold: #b8850f;
+
+	--background: #f5f7f9;
+	--foreground: #12283c;
+	--card: #ffffff;
+	--card-foreground: #12283c;
+	--popover: #ffffff;
+	--popover-foreground: #12283c;
+
+	/* Teal is the action colour. White on #0d6e7c is ~5.2:1. */
+	--primary: #0d6e7c;
+	--primary-foreground: #ffffff;
+
+	--secondary: #eaeff4;
+	--secondary-foreground: #12283c;
+	--muted: #eaeff4;
+	--muted-foreground: #5b6b7c;
+	--accent: #e4ebf1;
+	--accent-foreground: #12283c;
+	--destructive: #b3261e;
+	--border: #dbe3ea;
+	--input: #dbe3ea;
+	--ring: #0d6e7c;
+
+	/* A navy sidebar against a light workspace: the brand states itself once, at the
+	   edge, and then stays out of the way of the data. */
+	--sidebar: #0a2540;
+	--sidebar-foreground: #a9bed2;
+	--sidebar-primary: #35b3c4;
+	--sidebar-primary-foreground: #04222a;
+	--sidebar-accent: #12395c;
+	--sidebar-accent-foreground: #ffffff;
+	--sidebar-border: #16334f;
+	--sidebar-ring: #35b3c4;
+
+	/**
+	 * Categorical series. Assigned in FIXED ORDER, never cycled — a series that changes
+	 * colour between two renders of the same question is a correctness signal the reader
+	 * will read as noise.
+	 *
+	 * Validated against the CARD surface, which is where charts actually sit.
+	 */
+	--series-1: #0e8fa0;
+	--series-2: #b8850f;
+	--series-3: #2d6cb5;
+	--series-4: #d1553f;
+
+	/**
+	 * Status. Reserved — never reused as "series 5", and never the only signal: every
+	 * status in this interface ships with a word beside the colour.
+	 */
+	--critical: #b3261e;
+	--warning: #9c730a;
+	--ok: #12705a;
+}
+
+.dark {
+	--navy: #0a1a2b;
+	--teal: #35b3c4;
+	--gold: #d8a72a;
+
+	--background: #0a121c;
+	--foreground: #e8eef4;
+	--card: #111d2b;
+	--card-foreground: #e8eef4;
+	--popover: #111d2b;
+	--popover-foreground: #e8eef4;
+
+	/* Inverted, as shadcn's dark scheme does: a light teal carrying dark ink, because a
+	   deep teal button on a dark ground is a button nobody can see. */
+	--primary: #35b3c4;
+	--primary-foreground: #04222a;
+
+	--secondary: #1b2c3e;
+	--secondary-foreground: #e8eef4;
+	--muted: #1b2c3e;
+	--muted-foreground: #93a6b8;
+	--accent: #1f334a;
+	--accent-foreground: #e8eef4;
+	--destructive: #f87171;
+	--border: #1e3145;
+	--input: #1e3145;
+	--ring: #35b3c4;
+
+	--sidebar: #08131f;
+	--sidebar-foreground: #93a6b8;
+	--sidebar-primary: #35b3c4;
+	--sidebar-primary-foreground: #04222a;
+	--sidebar-accent: #14293f;
+	--sidebar-accent-foreground: #ffffff;
+	--sidebar-border: #16283a;
+	--sidebar-ring: #35b3c4;
+
+	/**
+	 * Dark is SELECTED, not derived. These are not the light steps lightened — they were
+	 * stepped independently and validated against the dark card, because an automatic
+	 * flip changes lightness relationships and quietly breaks the separation the light
+	 * palette was chosen for.
+	 */
+	--series-1: #219fae;
+	--series-2: #b58618;
+	--series-3: #4a8ad2;
+	--series-4: #d1614d;
+
+	--critical: #f87171;
+	--warning: #d8a72a;
+	--ok: #34d399;
+}
+
+@theme inline {
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
+
+	--color-navy: var(--navy);
+	--color-teal: var(--teal);
+	--color-gold: var(--gold);
+
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+
+	--color-sidebar: var(--sidebar);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-ring: var(--sidebar-ring);
+
+	--color-series-1: var(--series-1);
+	--color-series-2: var(--series-2);
+	--color-series-3: var(--series-3);
+	--color-series-4: var(--series-4);
+
+	--color-critical: var(--critical);
+	--color-warning: var(--warning);
+	--color-ok: var(--ok);
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+
+	html,
+	body,
+	#root {
+		height: 100%;
+	}
+
+	body {
+		@apply bg-background text-foreground;
+		font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+		-webkit-font-smoothing: antialiased;
+		text-rendering: optimizeLegibility;
+	}
+}
+
+@layer base {
+	::-webkit-scrollbar {
+		width: 8px;
+		height: 8px;
+	}
+	::-webkit-scrollbar-track {
+		background: transparent;
+	}
+	::-webkit-scrollbar-thumb {
+		background-color: color-mix(in oklab, var(--muted-foreground) 35%, transparent);
+		border-radius: 999px;
+	}
+	::-webkit-scrollbar-thumb:hover {
+		background-color: color-mix(in oklab, var(--muted-foreground) 55%, transparent);
+	}
+}
+
+/* The composer's typing indicator. Three dots, staggered. */
+@keyframes prudentia-pulse {
+	0%,
+	80%,
+	100% {
+		opacity: 0.25;
+		transform: translateY(0);
+	}
+	40% {
+		opacity: 1;
+		transform: translateY(-2px);
+	}
+}
