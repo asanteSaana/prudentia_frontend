@@ -1,5 +1,5 @@
 import axios, {type AxiosInstance} from 'axios';
-import {API_BASE_URL, SESSION_KEY} from './apiConstants';
+import {ApiService, SESSION_KEY, type Services} from './apiConstants';
 
 export interface ApiEnvelope<T = unknown> {
 	success: boolean;
@@ -56,12 +56,23 @@ function handleUnauthorized(): void {
 	window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT));
 }
 
-function client(): AxiosInstance {
-	const instance = axios.create({baseURL: API_BASE_URL, timeout: 30000});
+/**
+ * @param service Override the base URL for one call. Present so a second backend could be
+ *                reached without threading a client through every call site — the shape
+ *                GhanaCard uses. PrudenTia has one API, so it is unused today.
+ */
+function client(service?: Services): AxiosInstance {
+	const instance = axios.create({baseURL: service ?? ApiService.service, timeout: 30000});
 
 	instance.interceptors.request.use(cfg => {
 		const token = getStoredSession()?.accessToken;
-		if (token) cfg.headers.Authorization = token;
+		/**
+		 * `Bearer <jwt>`, matching the estate. The backend's `extractJwtFromAuthString`
+		 * tolerates a bare token too, but sending the conventional form means a proxy,
+		 * a gateway or a log scrubber that special-cases `Authorization: Bearer` behaves
+		 * as expected rather than as a surprise.
+		 */
+		if (token) cfg.headers.Authorization = `Bearer ${token}`;
 		return cfg;
 	});
 
@@ -77,13 +88,17 @@ function client(): AxiosInstance {
 }
 
 /** Request bodies are wrapped as `{ data: ... }` — the backend validates `req.body.data`. */
-export async function apiPost<T>(url: string, data?: unknown): Promise<ApiEnvelope<T>> {
-	const response = await client().post<ApiEnvelope<T>>(url, {data});
+export async function apiPost<T>(url: string, data?: unknown, service?: Services): Promise<ApiEnvelope<T>> {
+	const response = await client(service).post<ApiEnvelope<T>>(url, {data});
 	return response.data;
 }
 
-export async function apiGet<T>(url: string, params?: Record<string, unknown>): Promise<ApiEnvelope<T>> {
-	const response = await client().get<ApiEnvelope<T>>(url, {params});
+export async function apiGet<T>(
+	url: string,
+	params?: Record<string, unknown>,
+	service?: Services
+): Promise<ApiEnvelope<T>> {
+	const response = await client(service).get<ApiEnvelope<T>>(url, {params});
 	return response.data;
 }
 

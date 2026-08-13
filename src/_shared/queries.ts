@@ -1,5 +1,5 @@
 import {useQuery} from '@tanstack/react-query';
-import {ApiRoutes} from './apiService/apiConstants';
+import {Endpoints} from './apiService/apiConstants';
 import {apiGet} from './apiService/apiService';
 import type {Breakdowns, HeadlineMetrics, HistoryEntry, SchemaCatalogue, TrendPoint} from './types';
 
@@ -35,14 +35,14 @@ export const QueryKeys = {
 export function useHeadlineMetrics() {
 	return useQuery({
 		queryKey: QueryKeys.headline,
-		queryFn: async () => (await apiGet<HeadlineMetrics>(ApiRoutes.headlineMetrics)).data
+		queryFn: async () => (await apiGet<HeadlineMetrics>(Endpoints.METRICS_HEADLINE)).data
 	});
 }
 
 export function useTrend() {
 	return useQuery({
 		queryKey: QueryKeys.trend,
-		queryFn: async () => (await apiGet<TrendPoint[]>(ApiRoutes.trendMetrics)).data
+		queryFn: async () => (await apiGet<TrendPoint[]>(Endpoints.METRICS_TREND)).data
 	});
 }
 
@@ -50,7 +50,7 @@ export function useTrend() {
 export function useBreakdowns() {
 	return useQuery({
 		queryKey: QueryKeys.breakdowns,
-		queryFn: async () => (await apiGet<Breakdowns>(ApiRoutes.breakdowns)).data
+		queryFn: async () => (await apiGet<Breakdowns>(Endpoints.METRICS_BREAKDOWNS)).data
 	});
 }
 
@@ -58,7 +58,7 @@ export function useBreakdowns() {
 export function useHistory() {
 	return useQuery({
 		queryKey: QueryKeys.history,
-		queryFn: async () => (await apiGet<HistoryEntry[]>(ApiRoutes.queryHistory)).data
+		queryFn: async () => (await apiGet<HistoryEntry[]>(Endpoints.QUERY_HISTORY)).data
 	});
 }
 
@@ -66,7 +66,7 @@ export function useHistory() {
 export function useExamples() {
 	return useQuery({
 		queryKey: QueryKeys.examples,
-		queryFn: async () => (await apiGet<string[]>(ApiRoutes.queryExamples)).data,
+		queryFn: async () => (await apiGet<string[]>(Endpoints.QUERY_EXAMPLES)).data,
 		// Fixed on the server. Refetching them is pure noise.
 		staleTime: Infinity
 	});
@@ -79,7 +79,7 @@ export function useExamples() {
 export function useSchema(enabled: boolean) {
 	return useQuery({
 		queryKey: QueryKeys.schema,
-		queryFn: async () => (await apiGet<SchemaCatalogue>(ApiRoutes.schema)).data,
+		queryFn: async () => (await apiGet<SchemaCatalogue>(Endpoints.SCHEMA)).data,
 		enabled,
 		staleTime: Infinity
 	});

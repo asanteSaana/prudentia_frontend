@@ -1,5 +1,5 @@
 import {createContext, useCallback, useContext, useEffect, useMemo, useState} from 'react';
-import {ApiRoutes} from '../_shared/apiService/apiConstants';
+import {Endpoints} from '../_shared/apiService/apiConstants';
 import {
 	apiPost,
 	clearStoredSession,
@@ -57,7 +57,7 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
 	}, []);
 
 	const signIn = useCallback(async (email: string, password: string) => {
-		const response = await apiPost<StoredSession>(ApiRoutes.login, {email, password});
+		const response = await apiPost<StoredSession>(Endpoints.LOGIN, {email, password});
 		setStoredSession(response.data);
 		setSession(response.data);
 		setExpired(false);
@@ -66,7 +66,7 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
 
 	const signOut = useCallback(async () => {
 		try {
-			await apiPost(ApiRoutes.logout, {});
+			await apiPost(Endpoints.LOGOUT, {});
 		} catch {
 			// The token is stateless, so signing out is a client-side discard. A failed
 			// call must not leave the user stuck in a session they asked to leave.

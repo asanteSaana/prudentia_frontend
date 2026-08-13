@@ -1,5 +1,5 @@
 import {AlertTriangle, ShieldAlert, Sparkles} from 'lucide-react';
-import {useEffect, useRef} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {useLocation} from 'react-router-dom';
 import {Card, CardContent} from '@/components/ui/card';
 import {useExamples} from '@/_shared/queries';
@@ -121,7 +121,51 @@ function TurnBlock({turn}: {turn: Turn}) {
 	);
 }
 
+/**
+ * What the question is actually going through, in the product's own words.
+ *
+ * ── These are PACED, not measured — and the wording is chosen accordingly ────
+ *
+ * The whole pipeline is one HTTP request, so the client cannot observe the boundary
+ * between generation, validation and execution. Advancing on a timer is therefore the
+ * only option, and it means the labels must be defensible **as a description of the
+ * journey** rather than as a claim about where the request is right now. Nothing here
+ * renders a percentage or a "step 3 of 5", because that would assert a precision the
+ * client does not have.
+ *
+ * The wording is the product's own stage names (see `/how-it-works`), which is what keeps
+ * it honest. Two phrasings were specifically avoided:
+ *
+ *   "Analysing your data"  — the model is NEVER shown table contents (ADR-06). Saying
+ *                            this in the one moment the user is watching would undercut
+ *                            the product's central claim to sell a loading spinner.
+ *   "Thinking"             — invites the reader to over-read what is happening.
+ *
+ * The sequence HOLDS on the last label rather than looping. Looping back to the first
+ * would read as "it started over", which is exactly the wrong thing to suggest to someone
+ * already waiting.
+ */
+const STAGES = [
+	'Reading the schema…',
+	'Writing a query…',
+	'Checking it is safe to run…',
+	'Running it read-only…',
+	'Preparing the result…'
+] as const;
+
+/** Roughly the shape of a real request: generation dominates, the rest is fast. */
+const STAGE_MS = 1500;
+
 function Thinking() {
+	const [stage, setStage] = useState(0);
+
+	useEffect(() => {
+		const timer = setInterval(() => {
+			setStage(current => (current < STAGES.length - 1 ? current + 1 : current));
+		}, STAGE_MS);
+		return () => clearInterval(timer);
+	}, []);
+
 	return (
 		<div className="flex items-center gap-2 px-1 py-2 text-sm text-muted-foreground">
 			<span className="flex gap-1" aria-hidden="true">
@@ -133,9 +177,14 @@ function Thinking() {
 					/>
 				))}
 			</span>
-			{/* Named honestly. It is writing a statement that will then be validated — not
-			    "searching", and not "thinking" in any sense the reader should over-read. */}
-			<span role="status">Writing a query…</span>
+			{/*
+			 * `aria-live="polite"` so a screen reader is told the wait is progressing, but
+			 * only between utterances — an assertive region would interrupt the reader
+			 * every 1.5 seconds to say nothing they can act on.
+			 */}
+			<span role="status" aria-live="polite">
+				{STAGES[stage]}
+			</span>
 		</div>
 	);
 }

@@ -1,6 +1,6 @@
 import {useQueryClient} from '@tanstack/react-query';
 import {createContext, useCallback, useContext, useMemo, useRef, useState} from 'react';
-import {ApiRoutes} from '@/_shared/apiService/apiConstants';
+import {Endpoints} from '@/_shared/apiService/apiConstants';
 import {apiErrorOf, apiPost, type ApiError} from '@/_shared/apiService/apiService';
 import {QueryKeys} from '@/_shared/queries';
 import type {QueryAnswer} from '@/_shared/types';
@@ -68,7 +68,7 @@ export function AnswerProvider({children}: {children: React.ReactNode}) {
 			setBusy(true);
 
 			try {
-				const response = await apiPost<QueryAnswer>(ApiRoutes.query, {question});
+				const response = await apiPost<QueryAnswer>(Endpoints.QUERY, {question});
 				setTurns(current =>
 					current.map(turn => (turn.id === id ? {...turn, status: 'answered', answer: response.data} : turn))
 				);
