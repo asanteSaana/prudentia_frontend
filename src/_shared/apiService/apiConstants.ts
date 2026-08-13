@@ -21,6 +21,7 @@ export const ApiRoutes = {
 
 	headlineMetrics: '/api/v1/metrics/headline',
 	trendMetrics: '/api/v1/metrics/trend',
+	breakdowns: '/api/v1/metrics/breakdowns',
 	schema: '/api/v1/metrics/schema',
 
 	health: '/api/health'

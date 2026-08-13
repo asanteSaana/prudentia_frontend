@@ -117,12 +117,29 @@ export function seriesColour(theme: ChartTheme, index: number): string {
 	return theme.series[index] ?? theme.textMuted;
 }
 
-/** GHS money, for axis ticks and labels. */
-export function formatCurrency(value: number): string {
-	if (Math.abs(value) >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-	if (Math.abs(value) >= 1_000) return `${(value / 1_000).toFixed(0)}k`;
-	return value.toFixed(0);
+/**
+ * Compact magnitudes, for AXIS TICKS.
+ *
+ * An axis exists to give the eye a scale, not to be read digit by digit — so `14M` beats
+ * `14000000`, which is eight unseparated characters the reader has to count. The exact
+ * figures live on the direct labels, in the tooltip and in the table, all of which use
+ * the full formatter above.
+ */
+export function formatAxisTick(value: unknown): string {
+	if (typeof value !== 'number' || !Number.isFinite(value)) return String(value ?? '');
+	const magnitude = Math.abs(value);
+	if (magnitude >= 1_000_000_000) return `${trimZero(value / 1_000_000_000)}B`;
+	if (magnitude >= 1_000_000) return `${trimZero(value / 1_000_000)}M`;
+	if (magnitude >= 1_000) return `${trimZero(value / 1_000)}k`;
+	// Below a thousand the raw number is already short, and rounding it would misrepresent
+	// a ratio axis running 0 to 1.
+	return value.toLocaleString('en-GB', {maximumFractionDigits: 2});
 }
+
+const trimZero = (value: number): string => {
+	const fixed = value.toFixed(1);
+	return fixed.endsWith('.0') ? fixed.slice(0, -2) : fixed;
+};
 
 export function formatNumber(value: unknown): string {
 	if (typeof value !== 'number') return String(value ?? '');
@@ -148,9 +165,16 @@ export function sharedValueFormatter(values: unknown[]): (value: unknown) => str
 	const allIntegers = finite.length > 0 && finite.every(Number.isInteger);
 	const magnitude = finite.reduce((largest, value) => Math.max(largest, Math.abs(value)), 0);
 
-	// Counts stay whole; large magnitudes do not need three decimals to be compared;
-	// ratios and rates do.
-	const decimals = allIntegers ? 0 : magnitude >= 100 ? 1 : 3;
+	/**
+	 * Precision follows MAGNITUDE, because significant figures are what a reader compares.
+	 *
+	 * A first version stopped at `>= 100 ? 1 : 3`, which rendered earned premium as
+	 * `12,582,723.4` — nine significant figures, the last of which is a tenth of a cedi on
+	 * a twelve-million-cedi total. It is not precision, it is noise, and it makes two
+	 * adjacent bars harder to compare rather than easier. Past ten thousand the decimal
+	 * carries no information anyone reading a chart can use.
+	 */
+	const decimals = allIntegers ? 0 : magnitude >= 10_000 ? 0 : magnitude >= 100 ? 1 : 3;
 
 	return (value: unknown) => {
 		if (typeof value !== 'number' || !Number.isFinite(value)) return String(value ?? '');

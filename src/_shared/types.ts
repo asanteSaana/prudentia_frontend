@@ -1,4 +1,4 @@
-export type ChartType = 'kpi' | 'bar' | 'line' | 'table';
+export type ChartType = 'kpi' | 'bar' | 'hbar' | 'line' | 'area' | 'donut' | 'table';
 export type UserRole = 'EXECUTIVE' | 'ANALYST';
 
 export interface ResultColumn {
@@ -18,6 +18,19 @@ export interface QueryAnswer {
 	question: string;
 	explanation: string;
 	chartType: ChartType;
+	/**
+	 * Every presentation the SERVER judged honest for this result, `chartType` included.
+	 *
+	 * The client renders this list as the toggle and does not re-derive it. Whether a
+	 * donut is legitimate depends on whether the values are additive and non-negative —
+	 * a judgement made once, over the real rows, in `chartSelector.ts`. Deriving it again
+	 * here would be two implementations of the same rule with the divergent one on the
+	 * untrusted side of the wire.
+	 *
+	 * Optional so an older cached payload degrades to "just the one chart" rather than an
+	 * empty toggle.
+	 */
+	chartOptions?: ChartType[];
 	columns: ResultColumn[];
 	rows: unknown[][];
 	rowCount: number;
@@ -53,6 +66,19 @@ export interface TrendPoint {
 	month: string;
 	claimCount: number;
 	incurredAmount: number;
+}
+
+/** One labelled magnitude — the shape every Overview breakdown returns. */
+export interface Slice {
+	label: string;
+	value: number;
+}
+
+export interface Breakdowns {
+	premiumByChannel: Slice[];
+	lossRatioByRegion: Slice[];
+	claimsByCause: Slice[];
+	policiesByProduct: Slice[];
 }
 
 /**

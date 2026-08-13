@@ -2,6 +2,7 @@ import {Route, Routes} from 'react-router-dom';
 import Authenticated from '@/Authenticated';
 import Overview from '@/Features/Dashboard/Overview';
 import History from '@/Features/History/History';
+import HowItWorks from '@/Features/HowItWorks/HowItWorks';
 import Ask from '@/Features/QueryConsole/Ask';
 import {AnswerProvider} from '@/Features/QueryConsole/AnswerStore';
 import SchemaView from '@/Features/SchemaView/SchemaView';
@@ -37,6 +38,7 @@ export default function App() {
 					<Route index element={<Overview />} />
 					<Route path="ask" element={<Ask />} />
 					<Route path="history" element={<History />} />
+					<Route path="how-it-works" element={<HowItWorks />} />
 					<Route path="schema" element={<SchemaView role={session?.role ?? 'EXECUTIVE'} />} />
 					{/* Unknown paths land on the overview rather than a dead end. */}
 					<Route path="*" element={<Overview />} />

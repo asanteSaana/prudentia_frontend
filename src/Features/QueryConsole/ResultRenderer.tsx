@@ -1,54 +1,62 @@
 import {useMemo, useState} from 'react';
 import {
+	Area,
+	AreaChart,
 	Bar,
 	BarChart,
 	CartesianGrid,
+	Cell,
 	LabelList,
 	Line,
 	LineChart,
+	Pie,
+	PieChart,
 	ResponsiveContainer,
 	Tooltip,
 	XAxis,
 	YAxis
 } from 'recharts';
 import {Card, CardContent, CardFooter, CardHeader} from '@/components/ui/card';
-import {formatNumber, seriesColour, sharedValueFormatter, useChartTheme} from '@/lib/chartTheme';
+import {formatAxisTick, formatNumber, seriesColour, sharedValueFormatter, useChartTheme, type ChartTheme} from '@/lib/chartTheme';
+import {cn} from '@/lib/utils';
 import type {ChartType, QueryAnswer} from '@/_shared/types';
+import DataTable from './DataTable';
 
 /**
- * The polymorphic renderer: hero number, bar, line, or paginated table.
+ * The polymorphic renderer: number, bar, horizontal bar, line, area, donut, or table.
+ *
+ * ── Which presentations are offered is a SERVER decision ────────────────────
+ *
+ * The toggle is built from `answer.chartOptions`, which the reconciler computed over the
+ * real rows (ADR-08). The client does not decide whether a donut is honest for this data
+ * — that judgement lives in one place, and it is not this one. Re-deriving it here would
+ * be two implementations of the same rule with the divergent one on the untrusted side.
  *
  * ── Chart rules applied here ────────────────────────────────────────────────
  *
- * Single series throughout, so no legend box — the title (the explanation above the
- * chart) names what is plotted, and a legend for one thing is ink with no information.
- * One y-axis, always; there is no dual-axis chart in this product and there never should
- * be. Grid lines are horizontal only and recessive. Bars carry direct value labels up to
- * twelve bars, above which they collide and the Table view is the honest read — between
- * them those two discharge the light-mode contrast WARN from palette validation, which is
- * an obligation to provide labels or a table, not something that can be waved away.
+ * Single series throughout, so no legend on the cartesian charts — the explanation above
+ * names what is plotted, and a legend for one thing is ink with no information. The donut
+ * is the exception: its slices ARE separate identities, so it carries a legend and direct
+ * labels both. One y-axis, always. Grid lines horizontal only and recessive. Bars carry
+ * direct value labels up to twelve.
  *
  * Colour comes from the `--series-*` custom properties via `useChartTheme()`, so light and
- * dark swap in one place and the palette that was validated is the palette that renders —
- * including when the reader toggles the theme with a chart already on screen.
+ * dark swap in one place and the palette that was validated is the palette that renders.
  */
 
 interface Props {
 	answer: QueryAnswer;
 }
 
-const TOGGLE_LABEL: Record<ChartType, string> = {kpi: 'Number', bar: 'Bar', line: 'Line', table: 'Table'};
-
-/** Which presentations are LEGITIMATE for this shape (FR-21). Never all four. */
-function allowedViews(answer: QueryAnswer): ChartType[] {
-	const {columns, rows} = answer;
-	if (rows.length === 0) return ['table'];
-	if (rows.length === 1 && columns.length === 1) return ['kpi', 'table'];
-	if (columns.length >= 3) return ['table'];
-	if (columns.length === 1) return ['table'];
-	// Two columns, several rows: bar and line are both expressible; table always is.
-	return answer.chartType === 'line' ? ['line', 'bar', 'table'] : ['bar', 'line', 'table'];
-}
+const TOGGLE_LABEL: Record<ChartType, string> = {
+	kpi: 'Number',
+	bar: 'Bar',
+	hbar: 'Horizontal',
+	line: 'Line',
+	area: 'Area',
+	donut: 'Donut',
+	table: 'Table'
+};
 
 /**
  * ── This component MUST be keyed on `answer.queryId` by its parent ───────────
@@ -57,19 +65,16 @@ function allowedViews(answer: QueryAnswer): ChartType[] {
  * initialiser runs at MOUNT ONLY. Without a changing key the component is reused across
  * answers and keeps the previous answer's presentation.
  *
- * That shipped as defect D-20 and it was not cosmetic. "Compare loss ratio by vehicle
- * category" returns `bar`; asked straight after a `line` answer it rendered as a LINE
- * chart joining SUV → PICKUP → TRUCK → MOTORCYCLE → BUS → SEDAN with a smooth curve —
- * asserting an order and a rate of change over unordered categories, which is the exact
- * lie `selectChartType` refuses to tell on the server ("a `line` hint over non-temporal
- * data becomes a bar"). The server was right and the client overrode it with stale state.
- *
- * A screenshot found it. The whole suite was green: the reconciliation is unit-tested,
- * the pipeline is integration-tested, and neither could see a second render.
+ * That shipped as defect D-20 and it was not cosmetic: "Compare loss ratio by vehicle
+ * category" returns `bar`, and asked straight after a `line` answer it rendered as a LINE
+ * chart joining SUV → PICKUP → TRUCK with a smooth curve — asserting an order and a rate
+ * of change over unordered categories, the exact lie the server refuses to tell. A
+ * screenshot found it; the whole suite was green, because neither a unit test nor an
+ * integration test can see a second render.
  */
 export default function ResultRenderer({answer}: Props) {
-	const views = allowedViews(answer);
-	const [view, setView] = useState<ChartType>(views.includes(answer.chartType) ? answer.chartType : views[0]);
+	const options = answer.chartOptions?.length ? answer.chartOptions : [answer.chartType];
+	const [view, setView] = useState<ChartType>(options.includes(answer.chartType) ? answer.chartType : options[0]);
 	// Reactive: re-read when the theme class changes, so a dark toggle repaints the chart
 	// instead of leaving the light palette on a dark card.
 	const theme = useChartTheme();
@@ -89,6 +94,19 @@ export default function ResultRenderer({answer}: Props) {
 	// never shows a different number of digits from the label printed above it.
 	const formatValue = useMemo(() => sharedValueFormatter(chartData.map(point => point.value)), [chartData]);
 
+	const tooltip = {
+		contentStyle: {
+			background: theme.surface,
+			border: `1px solid ${theme.grid}`,
+			borderRadius: 8,
+			color: theme.text,
+			fontSize: 12
+		},
+		formatter: (value: unknown) => [formatValue(value), valueName] as [string, string]
+	};
+
+	const axisTick = {fill: theme.textMuted, fontSize: 11};
+
 	return (
 		<Card className="gap-0 overflow-hidden py-0">
 			<CardHeader className="flex flex-wrap items-start justify-between gap-3 border-b px-4 py-3">
@@ -99,19 +117,20 @@ export default function ResultRenderer({answer}: Props) {
 					<p className="mt-1 text-sm">{answer.explanation}</p>
 				</div>
 
-				{views.length > 1 && (
-					<div role="group" aria-label="Presentation" className="flex shrink-0 gap-1">
-						{views.map(candidate => (
+				{options.length > 1 && (
+					<div role="group" aria-label="Presentation" className="flex shrink-0 flex-wrap gap-1">
+						{options.map(candidate => (
 							<button
 								key={candidate}
 								type="button"
 								onClick={() => setView(candidate)}
 								aria-pressed={view === candidate}
-								className={`rounded-md border px-2 py-1 text-xs transition-colors ${
+								className={cn(
+									'rounded-md border px-2 py-1 text-xs transition-colors',
 									view === candidate
 										? 'border-foreground/40 bg-muted font-medium text-foreground'
 										: 'text-muted-foreground hover:border-foreground/30 hover:text-foreground'
-								}`}>
+								)}>
 								{TOGGLE_LABEL[candidate]}
 							</button>
 						))}
@@ -127,7 +146,40 @@ export default function ResultRenderer({answer}: Props) {
 				) : view === 'kpi' ? (
 					<HeroNumber answer={answer} />
 				) : view === 'table' ? (
-					<ResultTable answer={answer} />
+					<DataTable answer={answer} />
+				) : view === 'hbar' ? (
+					/*
+					 * Horizontal bars grow DOWNWARD, so the container gets taller with the
+					 * category count rather than wider — which is the whole reason this
+					 * orientation exists: long labels get a full column of room instead of
+					 * being rotated to 35° and read sideways.
+					 */
+					<ResponsiveContainer width="100%" height={Math.max(220, chartData.length * 34 + 40)}>
+						<BarChart data={chartData} layout="vertical" margin={{top: 4, right: 56, bottom: 4, left: 8}}>
+							<CartesianGrid stroke={theme.grid} strokeDasharray="3 3" horizontal={false} />
+							<XAxis type="number" tick={axisTick} stroke={theme.grid} tickFormatter={formatAxisTick} />
+							<YAxis
+								type="category"
+								dataKey="label"
+								tick={axisTick}
+								stroke={theme.grid}
+								width={Math.min(220, Math.max(90, longestLabel(chartData) * 7))}
+								interval={0}
+							/>
+							<Tooltip cursor={{fill: theme.grid, fillOpacity: 0.3}} {...tooltip} />
+							<Bar dataKey="value" name={valueName} fill={seriesColour(theme, 0)} radius={[0, 4, 4, 0]} maxBarSize={26}>
+								<LabelList
+									dataKey="value"
+									position="right"
+									fill={theme.textMuted}
+									fontSize={11}
+									formatter={(value: unknown) => formatValue(value)}
+								/>
+							</Bar>
+						</BarChart>
+					</ResponsiveContainer>
+				) : view === 'donut' ? (
+					<Donut data={chartData} theme={theme} formatValue={formatValue} valueName={valueName} tooltip={tooltip} />
 				) : (
 					/* Charts scroll horizontally rather than compressing labels into
 					   illegibility — the ≥360px rule from the responsive spec. */
@@ -137,26 +189,9 @@ export default function ResultRenderer({answer}: Props) {
 								{view === 'line' ? (
 									<LineChart data={chartData} margin={{top: 8, right: 16, bottom: 8, left: 8}}>
 										<CartesianGrid stroke={theme.grid} strokeDasharray="3 3" vertical={false} />
-										<XAxis
-											dataKey="label"
-											tick={{fill: theme.textMuted, fontSize: 11}}
-											stroke={theme.grid}
-										/>
-										<YAxis
-											tick={{fill: theme.textMuted, fontSize: 11}}
-											stroke={theme.grid}
-											width={64}
-										/>
-										<Tooltip
-											contentStyle={{
-												background: theme.surface,
-												border: `1px solid ${theme.grid}`,
-												borderRadius: 8,
-												color: theme.text,
-												fontSize: 12
-											}}
-											formatter={(value: unknown) => [formatValue(value), valueName] as [string, string]}
-										/>
+										<XAxis dataKey="label" tick={axisTick} stroke={theme.grid} />
+										<YAxis tick={axisTick} stroke={theme.grid} width={64} tickFormatter={formatAxisTick} />
+										<Tooltip {...tooltip} />
 										<Line
 											type="monotone"
 											dataKey="value"
@@ -167,34 +202,47 @@ export default function ResultRenderer({answer}: Props) {
 											activeDot={{r: 5}}
 										/>
 									</LineChart>
+								) : view === 'area' ? (
+									<AreaChart data={chartData} margin={{top: 8, right: 16, bottom: 8, left: 8}}>
+										{/*
+										 * The fill is a gradient to near-transparent, not a flat
+										 * wash: an area's job is to carry the eye along the top
+										 * edge, and a solid block competes with it for attention
+										 * while implying the space below is itself a quantity.
+										 */}
+										<defs>
+											<linearGradient id="prudentia-area" x1="0" y1="0" x2="0" y2="1">
+												<stop offset="0%" stopColor={seriesColour(theme, 0)} stopOpacity={0.35} />
+												<stop offset="100%" stopColor={seriesColour(theme, 0)} stopOpacity={0.02} />
+											</linearGradient>
+										</defs>
+										<CartesianGrid stroke={theme.grid} strokeDasharray="3 3" vertical={false} />
+										<XAxis dataKey="label" tick={axisTick} stroke={theme.grid} />
+										<YAxis tick={axisTick} stroke={theme.grid} width={64} tickFormatter={formatAxisTick} />
+										<Tooltip {...tooltip} />
+										<Area
+											type="monotone"
+											dataKey="value"
+											name={valueName}
+											stroke={seriesColour(theme, 0)}
+											strokeWidth={2}
+											fill="url(#prudentia-area)"
+										/>
+									</AreaChart>
 								) : (
 									<BarChart data={chartData} margin={{top: 16, right: 16, bottom: 8, left: 8}}>
 										<CartesianGrid stroke={theme.grid} strokeDasharray="3 3" vertical={false} />
 										<XAxis
 											dataKey="label"
-											tick={{fill: theme.textMuted, fontSize: 11}}
+											tick={axisTick}
 											stroke={theme.grid}
 											interval={0}
 											angle={chartData.length > 6 ? -35 : 0}
 											textAnchor={chartData.length > 6 ? 'end' : 'middle'}
 											height={chartData.length > 6 ? 64 : 30}
 										/>
-										<YAxis
-											tick={{fill: theme.textMuted, fontSize: 11}}
-											stroke={theme.grid}
-											width={64}
-										/>
-										<Tooltip
-											cursor={{fill: theme.grid, fillOpacity: 0.3}}
-											contentStyle={{
-												background: theme.surface,
-												border: `1px solid ${theme.grid}`,
-												borderRadius: 8,
-												color: theme.text,
-												fontSize: 12
-											}}
-											formatter={(value: unknown) => [formatValue(value), valueName] as [string, string]}
-										/>
+										<YAxis tick={axisTick} stroke={theme.grid} width={64} tickFormatter={formatAxisTick} />
+										<Tooltip cursor={{fill: theme.grid, fillOpacity: 0.3}} {...tooltip} />
 										<Bar
 											dataKey="value"
 											name={valueName}
@@ -202,19 +250,11 @@ export default function ResultRenderer({answer}: Props) {
 											radius={[4, 4, 0, 0]}
 											maxBarSize={44}>
 											{/*
-											 * Direct value labels, SELECTIVELY — up to 12
-											 * bars, above which they collide and become
-											 * noise, and the Table view is the honest read.
-											 *
-											 * This is not decoration. Palette validation
-											 * returned a light-mode contrast WARN on the
-											 * later series steps, and a WARN is discharged
-											 * by visible labels or a table view, never
-											 * dismissed. Shipping both is why the palette
-											 * is usable as validated. The label wears MUTED
-											 * INK, not the series colour — a coloured mark
-											 * beside text carries the identity; the text
-											 * itself stays legible ink.
+											 * Direct value labels, SELECTIVELY — up to 12 bars,
+											 * above which they collide and the Table view is the
+											 * honest read. The label wears MUTED INK, not the
+											 * series colour: a coloured mark beside text carries
+											 * the identity, the text stays legible ink.
 											 */}
 											{chartData.length <= 12 && (
 												<LabelList
@@ -246,72 +286,103 @@ export default function ResultRenderer({answer}: Props) {
 	);
 }
 
+const longestLabel = (data: Array<{label: string}>) =>
+	data.reduce((longest, point) => Math.max(longest, point.label.length), 0);
+
+/**
+ * The donut.
+ *
+ * Offered only where the server judged the parts genuinely sum to a whole — additive,
+ * non-negative, and few enough that angles remain comparable. The centre carries the
+ * TOTAL, which is the one number a reader of a part-to-whole chart always wants and the
+ * reason to prefer a donut over a pie: the hole is not empty space, it is where the sum
+ * goes.
+ *
+ * Slices take the categorical palette in FIXED ORDER — the same order, and the same four
+ * validated hues, as every other chart in the product.
+ */
+function Donut({
+	data,
+	theme,
+	formatValue,
+	valueName,
+	tooltip
+}: {
+	data: Array<{label: string; value: number}>;
+	theme: ChartTheme;
+	formatValue: (value: unknown) => string;
+	valueName: string;
+	tooltip: Record<string, unknown>;
+}) {
+	const total = data.reduce((sum, point) => sum + point.value, 0);
+
+	return (
+		<div className="flex flex-col items-center gap-4 lg:flex-row lg:justify-center">
+			<div className="relative">
+				<ResponsiveContainer width={260} height={260}>
+					<PieChart>
+						<Pie
+							data={data}
+							dataKey="value"
+							nameKey="label"
+							innerRadius={72}
+							outerRadius={110}
+							paddingAngle={2}
+							stroke={theme.surface}
+							strokeWidth={2}>
+							{data.map((point, index) => (
+								<Cell key={point.label} fill={seriesColour(theme, index)} />
+							))}
+						</Pie>
+						<Tooltip {...tooltip} />
+					</PieChart>
+				</ResponsiveContainer>
+
+				{/* The total, in the hole. `pointer-events-none` so it never intercepts a
+				    hover meant for the slice beneath it. */}
+				<div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+					<span className="text-[11px] tracking-wide text-muted-foreground uppercase">Total</span>
+					{/* The series formatter, not the general one: the total must carry the same
+					    precision as the slices beside it, or the hole says `.68` while every
+					    number around it is whole. */}
+					<span className="text-lg font-semibold tabular-nums">{formatValue(total)}</span>
+				</div>
+			</div>
+
+			{/*
+			 * A written legend, not just colour: each slice gets its name, its value and its
+			 * share. Angles are hard to compare and impossible to read exactly — this is
+			 * where the donut's numbers actually live.
+			 */}
+			<ul className="w-full max-w-xs space-y-1.5">
+				{data.map((point, index) => (
+					<li key={point.label} className="flex items-baseline gap-2 text-sm">
+						<span
+							aria-hidden="true"
+							className="mt-1.5 size-2.5 shrink-0 rounded-[3px]"
+							style={{background: seriesColour(theme, index)}}
+						/>
+						<span className="min-w-0 flex-1 truncate" title={point.label}>
+							{point.label}
+						</span>
+						<span className="tabular-nums">{formatValue(point.value)}</span>
+						<span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
+							{total > 0 ? `${((point.value / total) * 100).toFixed(1)}%` : '—'}
+						</span>
+					</li>
+				))}
+				<li className="border-t pt-1.5 text-[11px] text-muted-foreground">{valueName}</li>
+			</ul>
+		</div>
+	);
+}
+
 function HeroNumber({answer}: {answer: QueryAnswer}) {
 	const value = answer.rows[0]?.[0];
 	return (
 		<div className="py-8 text-center">
 			<p className="text-5xl font-semibold tabular-nums sm:text-6xl">{formatNumber(value)}</p>
 			<p className="mt-2 text-xs tracking-wide text-muted-foreground uppercase">{answer.columns[0]?.name}</p>
-		</div>
-	);
-}
-
-const PAGE_SIZE = 15;
-
-function ResultTable({answer}: {answer: QueryAnswer}) {
-	const [page, setPage] = useState(0);
-	const pages = Math.max(1, Math.ceil(answer.rows.length / PAGE_SIZE));
-	const slice = answer.rows.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
-
-	return (
-		<div>
-			{/* Wide tables scroll inside their own container; the page body never does. */}
-			<div className="overflow-x-auto">
-				<table className="w-full min-w-[320px] text-left text-sm">
-					<thead>
-						<tr className="border-b border-border">
-							{answer.columns.map(column => (
-								<th key={column.name} className="py-2 pr-4 text-xs font-medium text-muted-foreground">
-									{column.name}
-								</th>
-							))}
-						</tr>
-					</thead>
-					<tbody>
-						{slice.map((row, rowIndex) => (
-							<tr key={rowIndex} className="border-b border-border/60">
-								{row.map((cell, cellIndex) => (
-									<td key={cellIndex} className="py-1.5 pr-4 tabular-nums">
-										{formatNumber(cell)}
-									</td>
-								))}
-							</tr>
-						))}
-					</tbody>
-				</table>
-			</div>
-
-			{pages > 1 && (
-				<div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-					<button
-						type="button"
-						disabled={page === 0}
-						onClick={() => setPage(current => current - 1)}
-						className="rounded-md border border-border px-2 py-1 disabled:opacity-40">
-						Previous
-					</button>
-					<span>
-						Page {page + 1} of {pages}
-					</span>
-					<button
-						type="button"
-						disabled={page >= pages - 1}
-						onClick={() => setPage(current => current + 1)}
-						className="rounded-md border border-border px-2 py-1 disabled:opacity-40">
-						Next
-					</button>
-				</div>
-			)}
 		</div>
 	);
 }

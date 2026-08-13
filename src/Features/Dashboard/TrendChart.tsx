@@ -1,7 +1,7 @@
 import {CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis} from 'recharts';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Skeleton} from '@/components/ui/skeleton';
-import {formatNumber, seriesColour, useChartTheme} from '@/lib/chartTheme';
+import {formatAxisTick, formatNumber, seriesColour, useChartTheme} from '@/lib/chartTheme';
 import type {TrendPoint} from '@/_shared/types';
 
 /**
@@ -56,7 +56,7 @@ export default function TrendChart({points, loading}: Props) {
 										stroke={theme.grid}
 										minTickGap={16}
 									/>
-									<YAxis tick={{fill: theme.textMuted, fontSize: 10}} stroke={theme.grid} width={44} />
+									<YAxis tick={{fill: theme.textMuted, fontSize: 10}} stroke={theme.grid} width={44} tickFormatter={formatAxisTick} />
 									<Tooltip
 										contentStyle={{
 											background: theme.surface,

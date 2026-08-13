@@ -1,7 +1,7 @@
 import {useQuery} from '@tanstack/react-query';
 import {ApiRoutes} from './apiService/apiConstants';
 import {apiGet} from './apiService/apiService';
-import type {HeadlineMetrics, HistoryEntry, SchemaCatalogue, TrendPoint} from './types';
+import type {Breakdowns, HeadlineMetrics, HistoryEntry, SchemaCatalogue, TrendPoint} from './types';
 
 /**
  * Server state, through TanStack Query (template convention).
@@ -19,6 +19,7 @@ import type {HeadlineMetrics, HistoryEntry, SchemaCatalogue, TrendPoint} from '.
 export const QueryKeys = {
 	headline: ['metrics', 'headline'] as const,
 	trend: ['metrics', 'trend'] as const,
+	breakdowns: ['metrics', 'breakdowns'] as const,
 	history: ['query', 'history'] as const,
 	examples: ['query', 'examples'] as const,
 	schema: ['metrics', 'schema'] as const
@@ -42,6 +43,14 @@ export function useTrend() {
 	return useQuery({
 		queryKey: QueryKeys.trend,
 		queryFn: async () => (await apiGet<TrendPoint[]>(ApiRoutes.trendMetrics)).data
+	});
+}
+
+/** FR-22 — the Overview's breakdowns. Hand-written SQL, no model in the path. */
+export function useBreakdowns() {
+	return useQuery({
+		queryKey: QueryKeys.breakdowns,
+		queryFn: async () => (await apiGet<Breakdowns>(ApiRoutes.breakdowns)).data
 	});
 }
 

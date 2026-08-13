@@ -2,8 +2,8 @@ import {BarChart3, MessageSquare} from 'lucide-react';
 import {Link} from 'react-router-dom';
 import PageWrapper from '@/components/PageWrapper';
 import {Button} from '@/components/ui/button';
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
-import {useHeadlineMetrics, useTrend} from '@/_shared/queries';
+import {useBreakdowns, useHeadlineMetrics, useTrend} from '@/_shared/queries';
+import BreakdownChart from './BreakdownChart';
 import KpiTiles from './KpiTiles';
 import TrendChart from './TrendChart';
 
@@ -13,12 +13,19 @@ import TrendChart from './TrendChart';
  * Deliberately contains NO conversational surface. The dashboard's job is to be the part
  * of the product that is always right and always available: hand-written SQL, no model in
  * the path, unaffected by a provider outage (NFR-12). Mixing the question box in here
- * blurred that line in the previous build — a reader could not tell at a glance which
+ * blurred that line in an earlier build — a reader could not tell at a glance which
  * numbers came from a proven query and which from a generated one.
+ *
+ * Every figure and every chart on this page is computed by SQL written by hand and read
+ * in review. That is why the page can carry a claim the Ask page never makes: these
+ * numbers are right.
  */
 export default function Overview() {
 	const metrics = useHeadlineMetrics();
 	const trend = useTrend();
+	const breakdowns = useBreakdowns();
+
+	const percent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
 	return (
 		<PageWrapper
@@ -35,44 +42,62 @@ export default function Overview() {
 			}>
 			<KpiTiles metrics={metrics.data} loading={metrics.isLoading} />
 
-			<div className="grid gap-4 lg:grid-cols-3">
-				<div className="min-w-0 lg:col-span-2">
-					<TrendChart points={trend.data} loading={trend.isLoading} />
-				</div>
+			<TrendChart points={trend.data} loading={trend.isLoading} />
 
-				<Card className="min-w-0">
-					<CardHeader>
-						<CardTitle className="text-sm">How an answer is produced</CardTitle>
-						<CardDescription>Six stages, one of which can refuse.</CardDescription>
-					</CardHeader>
-					<CardContent className="space-y-3 text-sm">
-						{/*
-						 * This is the product's argument, stated where a reader will meet it.
-						 * A user who does not know the gate exists cannot calibrate how much
-						 * to trust an answer, and a user who is only told "it is safe" has
-						 * been asked to take it on faith.
-						 */}
-						{[
-							['Your question', 'Capped at 500 characters and recorded before anything runs.'],
-							['Schema context', 'The model is shown table and column descriptions — never any data.'],
-							['A proposed statement', 'Returned as structured output, so it can only be SQL or a refusal.'],
-							['Validation', 'Parsed by PostgreSQL’s own parser. One SELECT, whitelisted tables, or it is refused.'],
-							['Guarded execution', 'A read-only role, a statement timeout and a 1,000-row ceiling.'],
-							['The result', 'Shown as a number, a chart or a table — whichever the data actually supports.']
-						].map(([title, detail], index) => (
-							<div key={title} className="flex gap-3">
-								<span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-medium tabular-nums">
-									{index + 1}
-								</span>
-								<div className="min-w-0">
-									<p className="font-medium">{title}</p>
-									<p className="text-xs text-muted-foreground">{detail}</p>
-								</div>
-							</div>
-						))}
-					</CardContent>
-				</Card>
+			<div className="grid gap-4 md:grid-cols-2">
+				{/*
+				 * Loss ratio first, and alarmed: it is the one figure on this page that can
+				 * be bad rather than merely large. A region at or above 1.0 is paying out
+				 * more than it earns, and it wears the reserved critical colour — never a
+				 * series hue — with the number printed beside it so the meaning survives
+				 * greyscale and colourblindness.
+				 */}
+				<BreakdownChart
+					title="Loss ratio by region"
+					description="Incurred claims ÷ earned premium. At or above 100% the region loses money."
+					data={breakdowns.data?.lossRatioByRegion}
+					loading={breakdowns.isLoading}
+					form="hbar"
+					colourIndex={0}
+					format={percent}
+					alarmAbove={1}
+				/>
+
+				<BreakdownChart
+					title="Earned premium by channel"
+					description="Where the book is written. Parts of one total, so a composition."
+					data={breakdowns.data?.premiumByChannel}
+					loading={breakdowns.isLoading}
+					form="donut"
+				/>
+
+				<BreakdownChart
+					title="Claims by cause"
+					description="What is actually driving frequency."
+					data={breakdowns.data?.claimsByCause}
+					loading={breakdowns.isLoading}
+					form="hbar"
+					colourIndex={3}
+				/>
+
+				<BreakdownChart
+					title="Policies by product"
+					description="Cover mix across the in-force book."
+					data={breakdowns.data?.policiesByProduct}
+					loading={breakdowns.isLoading}
+					form="donut"
+				/>
 			</div>
+
+			<p className="text-center text-xs text-muted-foreground">
+				{/* Says plainly what separates this page from the Ask page. A user who does
+				    not know which numbers are proven cannot calibrate either. */}
+				Every figure above comes from SQL written by hand and reviewed — no model is
+				involved, and none of it stops working when the assistant does.{' '}
+				<Link to="/how-it-works" className="underline underline-offset-2 hover:text-foreground">
+					How an answer is produced
+				</Link>
+			</p>
 		</PageWrapper>
 	);
 }

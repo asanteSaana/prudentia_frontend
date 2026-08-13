@@ -1,4 +1,4 @@
-import {BarChart3, Database, History, MessageSquare, type LucideIcon} from 'lucide-react';
+import {BarChart3, Database, History, MessageSquare, ShieldCheck, type LucideIcon} from 'lucide-react';
 import type {UserRole} from '../types';
 
 /**
@@ -41,6 +41,12 @@ export const NAV_ITEMS: NavItem[] = [
 		url: '/history',
 		icon: History,
 		description: 'Every question you have asked, answered or blocked'
+	},
+	{
+		title: 'How it works',
+		url: '/how-it-works',
+		icon: ShieldCheck,
+		description: 'What each answer had to pass before it reached you'
 	},
 	{
 		title: 'Schema',
